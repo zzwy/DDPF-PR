@@ -6,18 +6,13 @@ import time
 import glob
 import logging
 import argparse
-
 from torch.utils.data import DataLoader
-# from skimage.measure.simple_metrics import compare_psnr
 from skimage.metrics.simple_metrics import peak_signal_noise_ratio
 from tqdm import tqdm
-
-from dataset.dataset_sig17 import SIG17_Test_Dataset, SIG17_Validation_Dataset
+from dataset.dataset_sig17 import SIG17_Validation_Dataset
 from models.PFShdr import PFShdr
 from models.loss import JointReconPerceptualLoss
-from train import test_single_img
 from utils.utils import *
-from models.ahdr import AHDR
 
 parser = argparse.ArgumentParser(description="Test Setting")
 parser.add_argument("--dataset_dir", type=str, default='/public/home/zhouweiyu/Data/Sig',
@@ -30,7 +25,6 @@ parser.add_argument('--num_workers', type=int, default=1, metavar='N',
                         help='number of workers to fetch data (default: 1)')
 parser.add_argument('--patch_size', type=int, default=256)
 parser.add_argument('--pretrained_model', type=str, default='/public/home/zhouweiyu/HDR/tmm/Checkpoints/best_checkpoint.pth')
-# parser.add_argument('--pretrained_model', type=str, default='./checkpoints/ahdr.pth')
 parser.add_argument('--test_best', action='store_true', default=False)
 parser.add_argument('--save_results', action='store_true', default=True)
 parser.add_argument('--save_dir', type=str, default="./results/sig")
@@ -50,16 +44,12 @@ def main():
     criterion = JointReconPerceptualLoss().to(device)
     # model architecture
     model_dict = {
-        0: PFShdr(in_chans=6,embed_dim=64, depths=[6,6,6], num_heads=[8,8,8], mlp_ratio=2, ), 1: AHDR(6, 6, 64, 32),
+        0: PFShdr(in_chans=6,embed_dim=64, depths=[6,6,6], num_heads=[8,8,8], mlp_ratio=2, ), 
     }
+
     model = model_dict[args.model_arch].to(device)
     model = nn.DataParallel(model)
     model.load_state_dict(torch.load(args.pretrained_model,map_location='cpu')['state_dict'])
-
-    # # ahdr cheakpoint
-    # checkpoint = torch.load('./checkpoints//val_latest_checkpoint.pth', map_location=torch.device('cpu'))
-    # checkpoint['state_dict'] = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
-    # model.load_state_dict(checkpoint['state_dict'])
 
     model.eval()
 
@@ -83,12 +73,11 @@ def main():
             label = torch.squeeze(label.detach().cpu()).numpy().astype(np.float32)
         pred_hdr = pred_img.copy()
         pred_hdr = pred_hdr.transpose(1, 2, 0)#[..., ::-1]
-        # psnr-l and psnr-\mu
-        # scene_psnr_l = compare_psnr(label, pred_img, data_range=1.0)
+
         scene_psnr_l = peak_signal_noise_ratio(label, pred_img, data_range=1.0)
         label_mu = range_compressor(label)
         pred_img_mu = range_compressor(pred_img)
-        # scene_psnr_mu = compare_psnr(label_mu, pred_img_mu, data_range=1.0)
+
         scene_psnr_mu = peak_signal_noise_ratio(label_mu, pred_img_mu, data_range=1.0)
         # ssim-l
         pred_img = np.clip(pred_img * 255.0, 0., 255.).transpose(1, 2, 0)

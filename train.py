@@ -6,19 +6,16 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from dataset.dataset_sig17 import SIG17_Training_Dataset, SIG17_Validation_Dataset, SIG17_Test_Dataset
+from dataset.dataset_sig17 import SIG17_Training_Dataset, SIG17_Validation_Dataset
 from models.loss import L1MuLoss, JointReconPerceptualLoss
 from models.PFShdr import PFShdr
-from models.woprompt_PFShdr import PFShdr
 from utils.utils import *
-from models.ahdr import AHDR
 from accelerate import Accelerator
 
 def get_args():
     parser = argparse.ArgumentParser(description='HDR-Transformer',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    # parser.add_argument("--dataset_dir", type=str, default='./data',
-    #                     help='dataset directory'),
+
     parser.add_argument("--dataset_dir", type=str, default='/public/home/zhouweiyu/Data/Sig',
                         help='dataset directory'),
     parser.add_argument('--patch_size', type=int, default=256),
@@ -47,7 +44,7 @@ def get_args():
                         help='decay learning rate every N epochs(default: 100)')
     parser.add_argument('--start_epoch', type=int, default=1, metavar='N',
                         help='start epoch of training (default: 1)')
-    parser.add_argument('--epochs', type=int, default=50, metavar='N',
+    parser.add_argument('--epochs', type=int, default=100, metavar='N',
                         help='number of epochs to train (default: 100)')
     parser.add_argument('--batch_size', type=int, default=12, metavar='N',
                         help='training batch size (default: 8)')
@@ -66,14 +63,12 @@ def train(args, model, device, train_loader, optimizer, epoch, criterion,acceler
     with tqdm(total=train_loader.__len__()) as pbar:
         for batch_idx, batch_data in enumerate(train_loader):
             data_time.update(time.time() - end)
-            # batch_ldr0, batch_ldr1, batch_ldr2 = batch_data['input0'].to(device), batch_data['input1'].to(device), \
-            #                                      batch_data['input2'].to(device)
+
             batch_ldr0, batch_ldr1, batch_ldr2 = batch_data['input0'], batch_data['input1'], batch_data['input2']
             label = batch_data['label']
             pred = model(batch_ldr0, batch_ldr1, batch_ldr2)
             loss = criterion(pred, label)
             optimizer.zero_grad()
-            # loss.backward()
             accelerator.backward(loss)
             optimizer.step()
             batch_time.update(time.time() - end)
@@ -128,74 +123,6 @@ def validation(args, model, device, val_loader, optimizer, epoch, criterion, cur
             f.write('best epoch:' + str(epoch) + '\n')
             f.write('Validation set: Average PSNR: {:.4f}, PSNR_mu_law: {:.4f}\n'.format(val_psnr.avg, val_mu_psnr.avg))
 
-# for evaluation with limited GPU memory
-def test_single_img(model, img_dataset, device):
-    dataloader = DataLoader(dataset=img_dataset, batch_size=1, num_workers=1, shuffle=False)
-    # model.eval()
-    with torch.no_grad():
-        for batch_data in tqdm(dataloader, total=len(dataloader)):
-            batch_ldr0, batch_ldr1, batch_ldr2 = batch_data['input0'].to(device), \
-                                                 batch_data['input1'].to(device), \
-                                                 batch_data['input2'].to(device)
-            output = model(batch_ldr0, batch_ldr1, batch_ldr2)
-            img_dataset.update_result(torch.squeeze(output.detach().cpu()).numpy().astype(np.float32))
-    pred, label = img_dataset.rebuild_result()
-    return pred, label
-
-def test(args, model, device, optimizer, epoch, cur_psnr, **kwargs):
-    model.eval()
-    test_datasets = SIG17_Test_Dataset(args.dataset_dir, args.patch_size) 
-    psnr_l = AverageMeter()
-    ssim_l = AverageMeter()
-    psnr_mu = AverageMeter()
-    ssim_mu = AverageMeter()
-    for idx, img_dataset in enumerate(test_datasets):
-        pred_img, label = test_single_img(model, img_dataset, device)
-        scene_psnr_l = peak_signal_noise_ratio(label, pred_img, data_range=1.0)
-
-        label_mu = range_compressor(label)
-        pred_img_mu = range_compressor(pred_img)
-
-        scene_psnr_mu = peak_signal_noise_ratio(label_mu, pred_img_mu, data_range=1.0)
-        pred_img = np.clip(pred_img * 255.0, 0., 255.).transpose(1, 2, 0)
-        label = np.clip(label * 255.0, 0., 255.).transpose(1, 2, 0)
-        pred_img_mu = np.clip(pred_img_mu * 255.0, 0., 255.).transpose(1, 2, 0)
-        label_mu = np.clip(label_mu * 255.0, 0., 255.).transpose(1, 2, 0)
-
-        scene_ssim_l = calculate_ssim(pred_img, label) # H W C data_range=0-255
-        scene_ssim_mu = calculate_ssim(pred_img_mu, label_mu)
-        psnr_l.update(scene_psnr_l)
-        ssim_l.update(scene_ssim_l)
-        psnr_mu.update(scene_psnr_mu)
-        ssim_mu.update(scene_ssim_mu) 
-
-    print('==Validation==\tPSNR_l: {:.4f}\t PSNR_mu: {:.4f}\t SSIM_l: {:.4f}\t SSIM_mu: {:.4f}'.format(
-        psnr_l.avg,
-        psnr_mu.avg,
-        ssim_l.avg,
-        ssim_mu.avg
-    ))
-
-    # save_model
-    save_dict = {
-        'epoch': epoch + 1,
-        'state_dict': model.state_dict(),
-        'optimizer': optimizer.state_dict()
-    }
-    torch.save(save_dict, os.path.join(args.logdir, 'val_latest_checkpoint.pth'))
-    if psnr_mu.avg > cur_psnr[0]:
-        torch.save(save_dict, os.path.join(args.logdir, 'best_checkpoint.pth'))
-        cur_psnr[0] = psnr_mu.avg
-        with open(os.path.join(args.logdir, 'best_checkpoint.json'), 'w') as f:
-            f.write('best epoch:' + str(epoch) + '\n')
-            f.write('Validation set: Average PSNR: {:.4f}, PSNR_mu: {:.4f}, SSIM_l: {:.4f}, SSIM_mu: {:.4f}\n'.format(
-                psnr_l.avg,
-                psnr_mu.avg,
-                ssim_l.avg,
-                ssim_mu.avg
-                ))
-
-
 def main():
     accelerator = Accelerator()
     # settings
@@ -205,13 +132,10 @@ def main():
         set_random_seed(args.seed)
     if not os.path.exists(args.logdir):
         os.makedirs(args.logdir)
-    # cuda and devices
-    # use_cuda = not args.no_cuda and torch.cuda.is_available()
-    # device = torch.device('cuda' if use_cuda else 'cpu')
+
     device = accelerator.device
-    # model architectures
     model = PFShdr(in_chans=6,embed_dim=64, depths=[6,6,6], num_heads=[8,8,8], mlp_ratio=2, )
-    # model = AHDR(6, 6, 64, 32)
+
     cur_psnr = [-1.0]
     # init
     if args.init_weights:
@@ -227,11 +151,6 @@ def main():
     scheduler =  torch.optim.lr_scheduler.CosineAnnealingLR(optimizer = optimizer,
                                                         T_max =  args.epochs,
                                                         eta_min=2e-6)
-
-    #model.to(device)
-    #if torch.cuda.device_count() > 1:
-        #model = nn.DataParallel(model)
-    
     # 加载检查点
     if args.resume:
         if os.path.isfile(args.resume):
@@ -278,12 +197,9 @@ def main():
         ''')
 
     for epoch in range(args.epochs):
-        #adjust_learning_rate(args, optimizer, epoch)
         train(args, model, device, train_loader, optimizer, epoch, criterion,accelerator)
         validation(args, model, device, val_loader, optimizer, epoch, criterion, cur_psnr,accelerator)
         scheduler.step()
-        # test(args, model, device, optimizer, epoch, cur_psnr)
-
 
 if __name__ == '__main__':
     main()
