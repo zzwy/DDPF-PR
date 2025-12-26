@@ -15,7 +15,7 @@ from models.loss import JointReconPerceptualLoss
 from utils.utils import *
 
 parser = argparse.ArgumentParser(description="Test Setting")
-parser.add_argument("--dataset_dir", type=str, default='/public/home/zhouweiyu/Data/Sig',
+parser.add_argument("--dataset_dir", type=str, default='None',#dataset
                         help='dataset directory')
 parser.add_argument('--no_cuda', action='store_true', default=False,
                         help='disables CUDA training')
@@ -24,7 +24,7 @@ parser.add_argument('--test_batch_size', type=int, default=1, metavar='N',
 parser.add_argument('--num_workers', type=int, default=1, metavar='N',
                         help='number of workers to fetch data (default: 1)')
 parser.add_argument('--patch_size', type=int, default=256)
-parser.add_argument('--pretrained_model', type=str, default='/public/home/zhouweiyu/HDR/tmm/Checkpoints/best_checkpoint.pth')
+parser.add_argument('--pretrained_model', type=str, default='None')#checkpoint
 parser.add_argument('--test_best', action='store_true', default=False)
 parser.add_argument('--save_results', action='store_true', default=True)
 parser.add_argument('--save_dir', type=str, default="./results/sig")
