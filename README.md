@@ -38,7 +38,7 @@ The proposed **DDPF-PR** framework consists of three key components:
 - **Progressive Refinement Module**: Fuses dual-domain features with iterative enhancement
 
 <p align="center">
-  <img src="figs/overview.pdf" width="900" alt="DDPF-PR Architecture">
+  <img src="figs/overview.png" width="900" alt="DDPF-PR Architecture">
 </p>
 
 ---
@@ -79,18 +79,19 @@ We evaluate our method on the following HDR datasets:
 
 | Dataset | Description | Download |
 |---------|-------------|----------|
-| [Kalantari et al.](https://cseweb.ucsd.edu/~viscomp/projects/SIG17HDR/) | 74 training scenes with 3 exposure brackets | [Link](https://cseweb.ucsd.edu/~viscomp/projects/SIG17HDR/) |
-| [Sen et al.](http://web.cecs.pdx.edu/~fliu/project/robust-hdr/) | HDR dataset with large object motion | [Link](http://web.cecs.pdx.edu/~fliu/project/robust-hdr/) |
+| [Kalantari et al. (SIG17)](https://cseweb.ucsd.edu/~viscomp/projects/SIG17HDR/) | 74 training scenes with 3 exposure brackets | [Link](https://cseweb.ucsd.edu/~viscomp/projects/SIG17HDR/) |
+| Hu et al. | Real-world challenging scenes | - |
+| TEL | Extreme dynamic range scenes | - |
 
 ### Testing Datasets
 
 | Dataset | Scenes | Characteristics |
 |---------|--------|-----------------|
 | Kalantari Test Set | 15 | Standard HDR benchmark |
-| [Tursun et al.](https://userpages.cs.umbc.edu/~kayyan/papers/sig18_HDR_real_benchmark.pdf) | 79 | Large motion, saturated regions |
-| [Prabhakar et al.](https://val.cds.iisc.ac.in/HDR/nightHDR/night.html) | 65 | Night-time HDR scenes |
-| [Hu et al.](https://github.com/qingsenyangit/AHDRNet) | 20 | Real-world challenging scenes |
-| [TEL](https://github.com/qingsenyangit/AHDRNet) | 10 | Extreme dynamic range scenes |
+| Tursun et al. | 79 | Large motion, saturated regions |
+| Prabhakar et al. | 65 | Night-time HDR scenes |
+| Hu et al. | 20 | Real-world challenging scenes |
+| TEL | 10 | Extreme dynamic range scenes |
 
 ### Directory Structure
 
@@ -100,13 +101,18 @@ datasets/
 │   ├── kalantari/
 │   │   ├── training/          # LDR image sequences (3 exposures)
 │   │   └── val/               # Ground truth HDR images
-│   └── Hu/
+│   ├── Hu/
+│   │   ├── training/
+│   │   └── val/
+│   └── TEL/
 │       ├── training/
 │       └── val/
 └── test/
-    ├── kalantari/
+    ├── kalantari/             # 15 test scenes
     ├── Hu/                    # 20 real-world challenging scenes
-    └── Tel/                   # 10 extreme dynamic range scenes
+    ├── TEL/                   # 10 extreme dynamic range scenes
+    ├── Tursun/                # 79 large motion scenes
+    └── Prabhakar/             # 65 night-time scenes
 ```
 
 ---
@@ -151,7 +157,7 @@ python fullimagetest.py --checkpoint /path/to/checkpoint.pth --input /path/to/te
 <summary><strong>Kalantari Dataset Results</strong></summary>
 <br>
 <p align="center">
-  <img src="figs/sig.pdf" width="900" alt="Results on Kalantari Dataset">
+  <img src="figs/sig.png" width="900" alt="Results on Kalantari Dataset">
 </p>
 <p align="center">
   <em>Visual comparison on Kalantari dataset with large motion and saturation.</em>
@@ -159,13 +165,13 @@ python fullimagetest.py --checkpoint /path/to/checkpoint.pth --input /path/to/te
 </details>
 
 <details>
-<summary><strong>Sen Dataset Results</strong></summary>
+<summary><strong>Tursun Dataset Results</strong></summary>
 <br>
 <p align="center">
-  <img src="figs/sen_turn.pdf" width="900" alt="Results on Sen Dataset">
+  <img src="figs/sen_turn.png" width="900" alt="Results on Tursun Dataset">
 </p>
 <p align="center">
-  <em>Visual comparison on Sen dataset with object motion.</em>
+  <em>Visual comparison on Tursun dataset with large motion.</em>
 </p>
 </details>
 
@@ -173,7 +179,7 @@ python fullimagetest.py --checkpoint /path/to/checkpoint.pth --input /path/to/te
 <summary><strong>Hu and TEL Dataset Results</strong></summary>
 <br>
 <p align="center">
-  <img src="figs/tel_hu.pdf" width="900" alt="Results on Hu and TEL Datasets">
+  <img src="figs/tel_hu.png" width="900" alt="Results on Hu and TEL Datasets">
 </p>
 <p align="center">
   <em>Visual comparison on Hu and TEL datasets with extreme dynamic range.</em>
@@ -239,7 +245,9 @@ python fullimagetest.py --checkpoint /path/to/checkpoint.pth --input /path/to/te
 
 ## 📦 Pretrained Models
 
-Download our pretrained model: [Google Drive](link) / [Baidu Pan](link)
+Download our pretrained model:
+
+**Baidu Pan**: [44.95sig17.pth](https://pan.baidu.com/s/1z5-vvnn6H4Ep_qWuZILn-w) (提取码: zxat)
 
 Place the downloaded checkpoint in your working directory and specify the path when running `fullimagetest.py`.
 
