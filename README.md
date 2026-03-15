@@ -38,7 +38,7 @@ The proposed **DDPF-PR** framework consists of three key components:
 - **Progressive Refinement Module**: Fuses dual-domain features with iterative enhancement
 
 <p align="center">
-  <img src="figs/overview.png" width="900" alt="DDPF-PR Architecture">
+  <img src="figs/overview.pdf" width="900" alt="DDPF-PR Architecture">
 </p>
 
 ---
@@ -96,15 +96,15 @@ We evaluate our method on the following HDR datasets:
 datasets/
 ├── train/
 │   ├── kalantari/
-│   │   ├── input/          # LDR image sequences (3 exposures)
-│   │   └── gt/             # Ground truth HDR images
-│   └── sen/
-│       ├── input/
-│       └── gt/
+│   │   ├── training/          # LDR image sequences (3 exposures)
+│   │   └── val/             # Ground truth HDR images
+│   └── Hu/
+│       ├── training/
+│       └── val/
 └── test/
     ├── kalantari/
-    ├── tursun/
-    └── prabhakar/
+    ├── Hu/
+    └── Tel/
 ```
 
 ---
