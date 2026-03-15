@@ -48,7 +48,7 @@ The proposed **DDPF-PR** framework consists of three key components:
 - Python 3.8+
 - PyTorch 1.10+
 - CUDA 11.0+ (for GPU training)
-- Conda (recommended) or compatible virtual environment manager
+- [Accelerate](https://huggingface.co/docs/accelerate/index) (for distributed training)
 
 ---
 
@@ -89,6 +89,8 @@ We evaluate our method on the following HDR datasets:
 | Kalantari Test Set | 15 | Standard HDR benchmark |
 | [Tursun et al.](https://userpages.cs.umbc.edu/~kayyan/papers/sig18_HDR_real_benchmark.pdf) | 79 | Large motion, saturated regions |
 | [Prabhakar et al.](https://val.cds.iisc.ac.in/HDR/nightHDR/night.html) | 65 | Night-time HDR scenes |
+| [Hu et al.](https://github.com/qingsenyangit/AHDRNet) | 20 | Real-world challenging scenes |
+| [TEL](https://github.com/qingsenyangit/AHDRNet) | 10 | Extreme dynamic range scenes |
 
 ### Directory Structure
 
@@ -97,14 +99,14 @@ datasets/
 ├── train/
 │   ├── kalantari/
 │   │   ├── training/          # LDR image sequences (3 exposures)
-│   │   └── val/             # Ground truth HDR images
+│   │   └── val/               # Ground truth HDR images
 │   └── Hu/
 │       ├── training/
 │       └── val/
 └── test/
     ├── kalantari/
-    ├── Hu/
-    └── Tel/
+    ├── Hu/                    # 20 real-world challenging scenes
+    └── Tel/                   # 10 extreme dynamic range scenes
 ```
 
 ---
@@ -113,38 +115,32 @@ datasets/
 
 ### Training
 
-Train the DDPF-PR model from scratch:
+Train the DDPF-PR model using Accelerate:
 
 ```bash
-python train.py --config configs/ddpf_pr.yaml
+CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch train.py --dataset_dir /path/to/dataset --logdir /path/to/log
 ```
 
-Or use distributed training with multiple GPUs:
+For single GPU training:
 
 ```bash
-python -m torch.distributed.launch --nproc_per_node=2 --master_port=4321 train.py --config configs/ddpf_pr.yaml --launcher pytorch
+CUDA_VISIBLE_DEVICES=0 accelerate launch train.py --dataset_dir /path/to/dataset --logdir /path/to/log
 ```
 
-Notes:
-- Adjust `--nproc_per_node` to match the number of GPUs available.
-- Change `--master_port` if the chosen port is in use.
-- Edit `configs/ddpf_pr.yaml` to set dataset paths, model checkpoints, and training hyperparameters.
-- Newer PyTorch versions recommend `torchrun` as an alternative to `torch.distributed.launch`.
+Key training arguments:
+- `--dataset_dir`: Path to the training dataset
+- `--logdir`: Directory to save checkpoints and logs
+- `--batch_size`: Training batch size (default: 12)
+- `--lr`: Learning rate (default: 0.0002)
+- `--epochs`: Number of training epochs (default: 100)
+- `--resume`: Path to checkpoint for resuming training
 
 ### Testing
 
-After training, run test with the test configuration:
+Run inference on test datasets:
 
 ```bash
-python test.py --config configs/test.yaml --checkpoint checkpoints/ddpf_pr_best.pth
-```
-
-### Inference
-
-Generate HDR results for your own LDR sequences:
-
-```bash
-python inference.py --input path/to/ldr_sequence/ --output path/to/save/hdr/ --checkpoint checkpoints/ddpf_pr_best.pth
+python fullimagetest.py --checkpoint /path/to/checkpoint.pth --input /path/to/test/data --output /path/to/results
 ```
 
 ---
@@ -152,13 +148,35 @@ python inference.py --input path/to/ldr_sequence/ --output path/to/save/hdr/ --c
 ## ✨ Qualitative Results
 
 <details>
-<summary><strong>Click to view qualitative comparison results</strong></summary>
+<summary><strong>Kalantari Dataset Results</strong></summary>
 <br>
 <p align="center">
-  <img src="figs/results_comparison.png" width="900" alt="Qualitative Results">
+  <img src="figs/sig.pdf" width="900" alt="Results on Kalantari Dataset">
 </p>
 <p align="center">
-  <em>Comparison with state-of-the-art methods on challenging scenes with large motion and saturation.</em>
+  <em>Visual comparison on Kalantari dataset with large motion and saturation.</em>
+</p>
+</details>
+
+<details>
+<summary><strong>Sen Dataset Results</strong></summary>
+<br>
+<p align="center">
+  <img src="figs/sen_turn.pdf" width="900" alt="Results on Sen Dataset">
+</p>
+<p align="center">
+  <em>Visual comparison on Sen dataset with object motion.</em>
+</p>
+</details>
+
+<details>
+<summary><strong>Hu and TEL Dataset Results</strong></summary>
+<br>
+<p align="center">
+  <img src="figs/tel_hu.pdf" width="900" alt="Results on Hu and TEL Datasets">
+</p>
+<p align="center">
+  <em>Visual comparison on Hu and TEL datasets with extreme dynamic range.</em>
 </p>
 </details>
 
@@ -166,55 +184,79 @@ python inference.py --input path/to/ldr_sequence/ --output path/to/save/hdr/ --c
 
 ## ✨ Quantitative Results
 
-### Comparison with State-of-the-Art Methods
+### Results on Kalantari Test Set
 
-Results on **Kalantari Test Set** (PSNR / SSIM / HDR-VDP-2):
+| Method | PSNR-μ↑ | PSNR-l↑ | SSIM-μ↑ | SSIM-l↑ | HDR-VDP-2↑ |
+|--------|---------|---------|---------|---------|------------|
+| DHDR [41] | 41.64 | 40.91 | 0.9869 | 0.9858 | 60.30 |
+| AHDR [20] | 43.62 | 41.03 | 0.9900 | 0.9862 | 62.30 |
+| NHDRR [42] | 42.41 | 41.08 | 0.9887 | 0.9861 | 61.21 |
+| HDR-GAN [34] | 43.92 | 41.57 | 0.9905 | 0.9865 | 65.45 |
+| APNT [30] | 43.94 | 41.61 | 0.9898 | 0.9879 | 64.05 |
+| CA-ViT [18] | 44.32 | 42.18 | 0.9916 | 0.9884 | 66.03 |
+| HyHDR [43] | 44.64 | 42.47 | 0.9915 | 0.9894 | 66.05 |
+| SCTNet [2] | 44.43 | 42.21 | 0.9918 | 0.9891 | 66.64 |
+| DiffHDR [36] | 44.11 | 41.73 | 0.9911 | 0.9885 | 65.52 |
+| SAFNet [44] | 44.66 | 43.18 | 0.9919 | 0.9901 | 66.11 |
+| LFDiff [21] | 44.76 | 42.59 | 0.9919 | 0.9906 | 66.54 |
+| AFUNet [33] | 44.91 | 42.59 | 0.9923 | 0.9906 | 66.75 |
+| **DDPF-PR (Ours)** | **44.93** | **42.61** | **0.9922** | **0.9908** | **66.78** |
 
-| Method | PSNR↑ | SSIM↑ | HDR-VDP-2↑ |
-|--------|-------|-------|------------|
-| Sen et al. (2012) | 40.46 | 0.9820 | 62.80 |
-| Hu et al. (2013) | 41.24 | 0.9838 | 64.21 |
-| Kalantari et al. (2017) | 41.84 | 0.9865 | 65.42 |
-| Wu et al. (2018) | 42.11 | 0.9872 | 66.15 |
-| Yan et al. (2019) | 42.45 | 0.9880 | 66.78 |
-| Prabhakar et al. (2021) | 43.12 | 0.9895 | 67.85 |
-| **DDPF-PR (Ours)** | **44.28** | **0.9912** | **69.34** |
+### Results on TEL Dataset
 
-### Results on Tursun Dataset (Large Motion)
+| Method | PSNR-μ↑ | PSNR-l↑ | SSIM-μ↑ | SSIM-l↑ | HDR-VDP-2↑ |
+|--------|---------|---------|---------|---------|------------|
+| DHDR [41] | 40.05 | 43.37 | 0.9794 | 0.9924 | 67.09 |
+| AHDR [20] | 42.08 | 45.30 | 0.9837 | 0.9943 | 68.80 |
+| NHDRR [42] | 36.68 | 39.61 | 0.9590 | 0.9853 | 65.41 |
+| HDR-GAN [34] | 41.71 | 44.87 | 0.9832 | 0.9949 | 69.57 |
+| CA-ViT [18] | 42.39 | 46.35 | 0.9848 | 0.9948 | 69.23 |
+| SCTNet [2] | 42.55 | 47.51 | 0.9850 | 0.9952 | 70.66 |
+| DiffHDR [36] | 42.18 | 45.63 | 0.9841 | 0.9946 | 69.88 |
+| SAFNet [44] | 42.68 | 47.46 | 0.9792 | 0.9955 | 68.16 |
+| AFUNet [33] | 43.31 | 47.83 | 0.9876 | 0.9959 | 71.08 |
+| **DDPF-PR (Ours)** | **43.49** | **48.25** | **0.9878** | **0.9961** | **70.96** |
 
-| Method | PSNR↑ | SSIM↑ |
-|--------|-------|-------|
-| Kalantari et al. (2017) | 40.15 | 0.9785 |
-| Yan et al. (2019) | 41.23 | 0.9812 |
-| **DDPF-PR (Ours)** | **42.67** | **0.9856** |
+### Results on Hu Dataset
+
+| Method | PSNR-μ↑ | PSNR-l↑ | SSIM-μ↑ | SSIM-l↑ | HDR-VDP-2↑ |
+|--------|---------|---------|---------|---------|------------|
+| DHDR [41] | 41.13 | 41.20 | 0.9870 | 0.9941 | 70.82 |
+| AHDR [20] | 45.76 | 49.22 | 0.9956 | 0.9980 | 75.04 |
+| NHDRR [42] | 45.15 | 48.75 | 0.9956 | 0.9981 | 74.86 |
+| HDR-GAN [34] | 45.86 | 49.14 | 0.9945 | 0.9989 | 75.19 |
+| APNT [30] | 46.41 | 47.97 | 0.9953 | 0.9986 | 73.06 |
+| CA-ViT [18] | 48.10 | 51.17 | 0.9947 | 0.9989 | 77.12 |
+| HyHDR [43] | 48.46 | 51.91 | 0.9959 | 0.9991 | 77.24 |
+| DiffHDR [36] | 48.03 | 50.23 | 0.9954 | 0.9989 | 76.22 |
+| SCTNet [2] | 48.10 | 51.03 | 0.9963 | 0.9991 | 77.14 |
+| SAFNet [44] | 47.18 | 49.35 | 0.9951 | 0.9990 | 76.83 |
+| LFDiff [21] | 48.74 | 52.10 | 0.9968 | 0.9993 | 77.35 |
+| AFUNet [33] | 48.83 | 52.13 | 0.9968 | 0.9991 | 77.44 |
+| **DDPF-PR (Ours)** | **48.86** | **52.42** | **0.9969** | **0.9992** | **77.46** |
 
 ---
 
 ## 📦 Pretrained Models
 
-Download our pretrained models:
+Download our pretrained model: [Google Drive](link) / [Baidu Pan](link)
 
-| Model | Dataset | PSNR | Download |
-|-------|---------|------|----------|
-| DDPF-PR | Kalantari | 44.28 dB | [Google Drive](link) / [Baidu Pan](link) |
-| DDPF-PR | Multi-dataset | 43.85 dB | [Google Drive](link) / [Baidu Pan](link) |
-
-Place downloaded models in the `checkpoints/` directory.
+Place the downloaded checkpoint in your working directory and specify the path when running `fullimagetest.py`.
 
 ---
 
 ## 📏 Troubleshooting
 
 - **CUDA / PyTorch mismatch**: Verify installed `torch` wheel matches your CUDA toolkit version. Reinstall `torch` if necessary.
-- **Distributed errors**: Ensure network ports are free and environment variables (`MASTER_ADDR`, `MASTER_PORT`) are set correctly if using multi-node setups.
-- **Missing dependencies**: Inspect top-level and component `requirements` or `setup` files and install any additional packages required by specific modules.
+- **Accelerate configuration**: Run `accelerate config` to set up distributed training configuration.
+- **Out of memory**: Reduce `--batch_size` or use gradient accumulation.
 - **Windows users**: Some shell scripts use `bash`; run them under WSL or adapt commands for PowerShell.
 
 ---
 
 ## 💖 Acknowledgment
 
-This project is based on [HDR-GAN](https://github.com/wanghu178/HDR-GAN) and [AHDRNet](https://github.com/liuzhen03/AHDRNet). We thank the authors for their excellent works.
+We thank Qingsen Yan and Tao Hu for their support and guidance throughout this research.
 
 ---
 
@@ -223,13 +265,12 @@ This project is based on [HDR-GAN](https://github.com/wanghu178/HDR-GAN) and [AH
 If this code contributes to your research, please cite our work:
 
 ```bibtex
-@article{zhou2025high,
+@article{zhou2026high,
   title={High Dynamic Range Imaging via Spatial-Frequency Interaction},
   author={Zhou, Weiyu and Yang, Yongqing and Hu, Tao and Hui, Pu and Jin, Jian and Cao, Yu and Yan, Qingsen and Zhang, Yanning},
   journal={IEEE Transactions on Circuits and Systems for Video Technology},
-  year={2025},
-  publisher={IEEE},
-  doi={10.1109/TCSVT.2025.xxxxxxx}
+  year={2026},
+  publisher={IEEE}
 }
 ```
 
@@ -239,8 +280,6 @@ If this code contributes to your research, please cite our work:
 
 If you have any questions, please feel free to contact:
 
-- Qingsen Yan (Corresponding Author): [qingsenyan@nwpu.edu.cn](mailto:qingsenyan@nwpu.edu.cn)
 - Weiyu Zhou: [weiyuzhou@mail.nwpu.edu.cn](mailto:weiyuzhou@mail.nwpu.edu.cn)
-- Tao Hu: [taohu@mail.nwpu.edu.cn](mailto:taohu@mail.nwpu.edu.cn)
 
 Or open an issue in this repository.
