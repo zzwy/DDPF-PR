@@ -25,8 +25,8 @@ High Dynamic Range (HDR) imaging aims to reconstruct high-quality HDR images fro
 
 ## 🔥 Update Log
 
-- **[2025/02]** 📢 📢 Paper accepted by IEEE TCSVT!
-- **[2025/03]** 🚀 Code and pretrained models released.
+- **[2026/02]** 📢 📢 Paper accepted by IEEE TCSVT!
+- **[2026/03]** 🚀 Code and pretrained models released.
 
 ---
 
